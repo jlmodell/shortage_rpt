@@ -6,6 +6,91 @@ file_path = r"C:\temp\Shortage Report.xls"
 year = datetime.now().year
 
 
+def map_sale_prices():
+    global file_path
+
+    df = pd.read_excel(file_path, sheet_name="Shortages2", header=None)
+    df.columns = [
+        "Kit",
+        "Description",
+        "Qty",
+        "So Date",
+        "Del Date",
+        "SO Nbr",
+        "Cust",
+        "Cust Name",
+        "Sell $",
+    ]
+    df.dropna(subset=["Cust"], inplace=True)
+    df["SO Nbr"] = df["SO Nbr"].apply(
+        lambda x: str(float(x)).rstrip(".0") if x not in ["", "End of"] else x
+    )
+    df["Unit Sell $"] = df["Sell $"] / df["Qty"]
+
+    sell_prices_by_kit_so_nbr = {}
+    for _, row in df.iterrows():
+        key = f"{row['Kit']}_{row['SO Nbr']}"
+        # print(key)
+        if key not in sell_prices_by_kit_so_nbr:
+            sell_prices_by_kit_so_nbr[key] = row["Unit Sell $"]
+
+    return sell_prices_by_kit_so_nbr
+
+
+mapped_prices = map_sale_prices()
+
+
+def shortages1():
+    global file_path
+
+    def get_price(row):
+        global mapped_prices
+        key = f"{row['Kit']}_{row['SO Nbr']}"
+        # print(key)
+        return mapped_prices.get(key, 0)
+
+    df = pd.read_excel(file_path, sheet_name="Shortages1", header=None)
+    df.columns = [
+        "SO Nbr",
+        "Cust",
+        "Cust Name",
+        "Kit",
+        "Description",
+        "Qty",
+        "Del Date",
+        "Cust PO",
+        "So Date",
+    ]
+
+    df.fillna("", inplace=True)
+
+    df["SO Nbr"] = df["SO Nbr"].apply(
+        lambda x: str(float(x)).rstrip(".0") if x not in ["", "End of"] else x
+    )
+    df["Kit"] = df["Kit"].astype(str)
+    df["Cust PO"] = df["Cust PO"].astype(str)
+
+    df["So Date"] = df["So Date"].astype(str).str[:10]
+    df["So Date"] = df["So Date"].apply(lambda x: "" if x == "NaT" else x)
+    df["Del Date"] = df["Del Date"].astype(str).str[:10]
+    df["Del Date"] = df["Del Date"].apply(lambda x: "" if x == "NaT" else x)
+
+    df["Unit Sell $"] = df.apply(get_price, axis=1)
+    df["Sell $"] = df.apply(
+        lambda row: row["Unit Sell $"] * row["Qty"] if row["Qty"] != "" else "",
+        axis=1,
+    )
+
+    df["Unit Sell $"] = df["Unit Sell $"].apply(lambda x: "" if x == 0 else x)
+
+    df.to_excel(
+        f"Shortages1 (By SO) RunTime-{datetime.now(): %Y-%m-%d %H%M%S}.xlsx",
+        index=False,
+    )
+
+    # df.dropna(subset=["SO Nbr"], inplace=True)
+
+
 def shortages2():
     global file_path
 
@@ -52,6 +137,8 @@ def shortages2():
     df["So Date"] = df["So Date"].astype(str).str[:10]
     df["Del Date"] = df["Del Date"].astype(str).str[:10]
 
+    df["Unit Sell $"] = df["Sell $"] / df["Qty"]
+
     df["Reason"] = df["Del Date"].apply(reason_from_date)
 
     grouped_by_kit = df.groupby("Kit").agg(
@@ -83,8 +170,9 @@ def shortages2():
                             "",
                             row["Sell $"],
                             "",
+                            "",
                         ],
-                        ["", "", "", "", "", "", "", "", "", ""],
+                        ["", "", "", "", "", "", "", "", "", "", ""],
                     ],
                     columns=df.columns,
                 ),
@@ -109,6 +197,7 @@ def shortages2():
                         "",
                         "",
                         total_sell,
+                        "",
                         "",
                     ]
                 ],
@@ -203,6 +292,7 @@ def shortages3():
 
 
 def main():
+    shortages1()
     shortages2()
     shortages3()
 
