@@ -23,7 +23,7 @@ def map_sale_prices():
     ]
     df.dropna(subset=["Cust"], inplace=True)
     df["SO Nbr"] = df["SO Nbr"].apply(
-        lambda x: str(float(x)).rstrip(".0") if x not in ["", "End of"] else x
+        lambda x: str(x)[:6] if x not in ["", "End of"] else x
     )
     df["Unit Sell $"] = df["Sell $"] / df["Qty"]
 
@@ -65,7 +65,7 @@ def shortages1():
     df.fillna("", inplace=True)
 
     df["SO Nbr"] = df["SO Nbr"].apply(
-        lambda x: str(float(x)).rstrip(".0") if x not in ["", "End of"] else x
+        lambda x: str(x)[:6] if x not in ["", "End of"] else x
     )
     df["Kit"] = df["Kit"].astype(str)
     df["Cust PO"] = df["Cust PO"].astype(str)
@@ -89,6 +89,8 @@ def shortages1():
     )
 
     # df.dropna(subset=["SO Nbr"], inplace=True)
+
+    return df
 
 
 def shortages2():
@@ -136,6 +138,9 @@ def shortages2():
     df["Kit"] = df["Kit"].astype(str)
     df["So Date"] = df["So Date"].astype(str).str[:10]
     df["Del Date"] = df["Del Date"].astype(str).str[:10]
+    df["SO Nbr"] = df["SO Nbr"].apply(
+        lambda x: str(x)[:6] if x not in ["", "End of"] else x
+    )
 
     df["Unit Sell $"] = df["Sell $"] / df["Qty"]
 
@@ -213,7 +218,7 @@ def shortages2():
         index=False,
     )
 
-    return df
+    return new_df
 
 
 def shortages3():
@@ -272,6 +277,15 @@ def shortages3():
     df["Sell $"] = df["Sell $"].astype(float).map("${:,.2f}".format)
     df["Qty"] = df["Qty"].astype(int).map("{:,}".format)
 
+    df["Kit"] = df["Kit"].astype(str)
+    df["So Date"] = df["So Date"].astype(str).str[:10]
+    df["Del Date"] = df["Del Date"].astype(str).str[:10]
+    df["SO Nbr"] = df["SO Nbr"].apply(
+        lambda x: str(x)[:6] if x not in ["", "End of"] else x
+    )
+
+    reps_dfs = {}
+
     for rep in reps:
         rep_df = df[df["Sales Rep Mapped"] == reps_dict[rep]][
             [
@@ -287,14 +301,29 @@ def shortages3():
                 "Sales Rep",
             ]
         ]
+
         rep_df.sort_values(by=["Kit", "So Date"], inplace=True)
+        rep_tag = reps_dict[rep][:12]
+
+        reps_dfs[rep_tag] = rep_df
+
         rep_df.to_excel(f"{reps_dict[rep]}.xlsx", index=False)
+
+    return reps_dfs
 
 
 def main():
-    shortages1()
-    shortages2()
-    shortages3()
+    df1 = shortages1()
+    df2 = shortages2()
+    reps_dfs = shortages3()
+
+    with pd.ExcelWriter(
+        f"Shortages RunTime-{datetime.now(): %Y-%m-%d %H%M%S}.xlsx"
+    ) as writer:
+        df1.to_excel(writer, sheet_name="Shortages1", index=False)
+        df2.to_excel(writer, sheet_name="Shortages2", index=False)
+        for rep in reps_dfs:
+            reps_dfs[rep].to_excel(writer, sheet_name=rep, index=False)
 
 
 if __name__ == "__main__":
