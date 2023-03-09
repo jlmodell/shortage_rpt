@@ -1,9 +1,36 @@
-import pandas as pd
+import os
 import re
 from datetime import datetime
 
+import pandas as pd
+import pandas_nosql
+import yaml
+
 file_path = r"C:\temp\Shortage Report.xls"
 year = datetime.now().year
+
+
+def read_yaml(fname):
+    with open(fname) as f:
+        config = yaml.safe_load(f)
+    return config
+
+
+config = read_yaml(os.path.join(os.getcwd(), "config.yaml"))
+
+
+def get_from_mongodb():
+    global config
+
+    df = pd.read_mongo(
+        database="bussepricing",
+        collection="contract_prices",
+        normalize=True,
+        host=config["mongodb"]["uri"],
+        port=27017,
+    )
+
+    return df
 
 
 def map_sale_prices():
@@ -313,18 +340,19 @@ def shortages3():
 
 
 def main():
-    df1 = shortages1()
-    df2 = shortages2()
-    reps_dfs = shortages3()
+    return get_from_mongodb()
+    # df1 = shortages1()
+    # df2 = shortages2()
+    # reps_dfs = shortages3()
 
-    with pd.ExcelWriter(
-        f"Shortages RunTime-{datetime.now(): %Y-%m-%d %H%M%S}.xlsx"
-    ) as writer:
-        df1.to_excel(writer, sheet_name="Shortages1", index=False)
-        df2.to_excel(writer, sheet_name="Shortages2", index=False)
-        for rep in reps_dfs:
-            reps_dfs[rep].to_excel(writer, sheet_name=rep, index=False)
+    # with pd.ExcelWriter(
+    #     f"Shortages RunTime-{datetime.now(): %Y-%m-%d %H%M%S}.xlsx"
+    # ) as writer:
+    #     df1.to_excel(writer, sheet_name="Shortages1", index=False)
+    #     df2.to_excel(writer, sheet_name="Shortages2", index=False)
+    #     for rep in reps_dfs:
+    #         reps_dfs[rep].to_excel(writer, sheet_name=rep, index=False)
 
 
 if __name__ == "__main__":
-    main()
+    df = main()
